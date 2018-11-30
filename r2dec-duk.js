@@ -68,7 +68,7 @@ function r2dec_main(args) {
             Global.argdb = data.argdb;
             // af seems to break renaming.
             /* asm.pseudo breaks things.. */
-            if (data.graph && data.graph.length > 0) {
+            if (data.code && data.code.length > 0) {
                 var p = new libdec.core.session(data, architecture);
                 var arch_context = architecture.context(data);
                 libdec.core.analysis.pre(p, architecture, arch_context);

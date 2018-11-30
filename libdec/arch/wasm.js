@@ -85,12 +85,14 @@ module.exports = (function() {
             }
             return context.local[n];
         }
-        n = instructions[pos].parsed.opd[0];
-        if (!context.local[n]) {
-            name += n;
-            context.local[n] = new WasmVar(name, type, instr);
-            if (allow_args) {
-                context.input[n] = context.local[n];
+        if (instructions[pos]) {
+            n = instructions[pos].parsed.opd[0];
+            if (!context.local[n]) {
+                name += n;
+                context.local[n] = new WasmVar(name, type, instr);
+                if (allow_args) {
+                    context.input[n] = context.local[n];
+                }
             }
         }
         return context.local[n];

@@ -60,7 +60,7 @@ module.exports = (function() {
         }
     };
 
-    var _instruction = function(data, arch) {
+    var _instruction = function(data) {
         this.code = null;
         this.valid = true;
         this.jump = data.jump;
@@ -69,7 +69,7 @@ module.exports = (function() {
         this.location = data.offset;
         this.assembly = data.disasm || data.opcode;
         this.simplified = data.opcode;
-        this.parsed = arch.parse(this.assembly, this.simplified);
+        this.parsed = null;
         this.string = null;
         this.symbol = null;
         this.callee = null;

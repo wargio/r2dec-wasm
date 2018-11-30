@@ -111,23 +111,13 @@ module.exports = (function() {
     }
 
     function print_issue() {
-        var xrefs = r2_sanitize(r2str('isj'), '[]');
-        var strings = r2_sanitize(r2str('izj'), '[]');
-        var functions = r2_sanitize(r2str('aflj'), '[]');
-        var data = r2_sanitize(r2str('agj'), '[]');
-        var farguments = r2_sanitize(r2str('afvj', true), '{"sp":[],"bp":[],"reg":[]}');
+        var symbols = r2_sanitize(r2str('isj'), '[]');
+        var data = r2_sanitize(r2str('pIj $SS @ section.code'), '[]');
         var arch = r2_sanitize(r2str('e asm.arch'), '');
-        var archbits = r2_sanitize(r2str('e asm.bits'), '32');
-        var database = r2_sanitize(r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays), '[]');
         console.log('{"name":"issue_' + (new Date()).getTime() +
             '","arch":"' + arch +
-            '","archbits":' + archbits +
-            ',"agj":' + data +
-            ',"isj":' + xrefs +
-            ',"izj":' + strings +
-            ',"afvj":' + farguments +
-            ',"afcfj":' + database +
-            ',"aflj":' + functions + '}');
+            '","symbols":' + symbols +
+            ',"code":' + data + '}');
     }
     var r2util = {
         check_args: function(args) {
@@ -146,13 +136,8 @@ module.exports = (function() {
         },
         evarsTestSuite: function(data) {
             this.arch = data.arch;
-            this.archbits = data.bits;
             this.honor = {
                 casts: true,
-                assembly: true,
-                blocks: false,
-                xrefs: false,
-                paddr: false,
                 pseudo: false,
                 html: false,
                 color: false
@@ -164,30 +149,10 @@ module.exports = (function() {
         },
         dataTestSuite: function(x) {
             var o = _JSON.parse(x);
-            if (!o.arch) {
-                throw new Error('missing architecture in JSON.');
-            }
-            var bits = o.archbits;
-            if (bits) {
-                // if bits is in the issue then it has been decoded as a Long object.
-                // to override this is required to be converted to just an integer.
-                bits = bits.low;
-            }
             return {
-                arch: o.arch,
-                bits: bits || 32,
-                graph: o.agj || [],
-                xrefs: {
-                    symbols: o.isj || [],
-                    strings: o.izj || [],
-                    functions: o.aflj || [],
-                    arguments: o.afvj || {
-                        "sp": [],
-                        "bp": [],
-                        "reg": []
-                    }
-                },
-                argdb: o.afcfj
+                arch: o.arch || 'wasm',
+                code: o.code || [],
+                symbols: o.symbols || [],
             };
         },
         evars: function(args) {
@@ -205,24 +170,13 @@ module.exports = (function() {
             };
             this.extra = {
                 theme: r2str('e pdw.theme'),
-                debug: has_option(args, '--debug')
+                debug: true, //has_option(args, '--debug')
             };
         },
         data: function() {
             this.arch = r2str('e asm.arch');
-            this.bits = r2int('e asm.bits', 32);
-            this.xrefs = {
-                symbols: r2json('isj', []),
-                strings: r2json('izj', []),
-                functions: r2json('aflj', []),
-                arguments: r2json('afvj', {
-                    "sp": [],
-                    "bp": [],
-                    "reg": []
-                })
-            };
-            this.graph = r2json('agj', []);
-            this.argdb = r2custom('afcfj @@@i', /^\[\]\n/g, merge_arrays_json);
+            this.symbols = r2json('isj', []);
+            this.code = r2json('pIj $SS @ section.code', []);
         },
         sanitize: function(enable, evars) {
             var s = evars.sanitize;

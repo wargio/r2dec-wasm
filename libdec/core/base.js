@@ -57,8 +57,9 @@ var _generic_asm = function(asm) {
  * @constructor
  * @inner
  */
-var _uexpr = function(operator, operand) {
+var _uexpr = function(operator, operand, spaced) {
     this.operator = operator;
+    this.pad = spaced ? ' ' : '';
 
     this.operands = [
         autoString(operand)
@@ -69,7 +70,7 @@ var _uexpr = function(operator, operand) {
         return [
             this.operator,
             this.operands[0]
-        ].join('');
+        ].join(this.pad);
     };
 };
 
@@ -176,17 +177,15 @@ var _generic_call = function(function_name, args) {
     };
 };
 
-var _generic_rotate = function(destination, source_a, rotation, bits, is_left) {
+var _generic_rotate = function(source_a, rotation, bits, is_left) {
     this.call = 'rotate_' + (is_left ? 'left' : 'right') + bits;
-    this.destination = destination;
     this.source_a = source_a;
     this.rotation = rotation;
 
     this.toString = function() {
         var args = [autoString(this.source_a), autoString(this.rotation)];
 
-        return [autoString(this.destination), '=',
-            Global.printer.theme.callname(this.call),
+        return [Global.printer.theme.callname(this.call),
             parenthesize(args.join(', '))
         ].join(' ');
     };
@@ -260,97 +259,97 @@ module.exports = {
         return _assign(destination, new _texpr('?', ':', condition.toString(), src_true, src_false));
     },
     /* MATH */
-    increase: function(destination, source) {
+    increase: function(source) {
         if (source == '1') {
-            return new _uexpr_pf('++', destination);
+            return '++';
         }
 
-        return _assign(destination, new _bexpr('+', destination, source));
+        return new _uexpr('+', source);
     },
-    decrease: function(destination, source) {
+    decrease: function(source) {
         if (source == '1') {
-            return new _uexpr_pf('--', destination);
+            return '--';
         }
 
-        return _assign(destination, new _bexpr('-', destination, source));
+        return new _uexpr('-', source);
     },
-    add: function(destination, source_a, source_b) {
-        if ((destination == source_a) && (source_b == '1')) {
-            return new _uexpr_pf('++', destination);
+    add: function(source_a, source_b) {
+        if (source_b == '1') {
+            return '++';
         }
 
-        return _assign(destination, new _bexpr('+', source_a, source_b));
+        return new _bexpr('+', source_a, source_b);
     },
-    and: function(destination, source_a, source_b) {
+    and: function(source_a, source_b) {
         if (source_b == '0') {
-            return _assign(destination, '0');
+            return '0';
         }
 
-        return _assign(destination, new _bexpr('&', source_a, source_b));
+        return new _bexpr('&', source_a, source_b);
     },
-    divide: function(destination, source_a, source_b) {
-        return _assign(destination, new _bexpr('/', source_a, source_b));
+    divide: function(source_a, source_b) {
+        return new _bexpr('/', source_a, source_b);
     },
-    module: function(destination, source_a, source_b) {
-        return _assign(destination, new _bexpr('%', source_a, source_b));
+    module: function(source_a, source_b) {
+        return new _bexpr('%', source_a, source_b);
     },
-    multiply: function(destination, source_a, source_b) {
-        return _assign(destination, new _bexpr('*', source_a, source_b));
+    multiply: function(source_a, source_b) {
+        return new _bexpr('*', source_a, source_b);
     },
-    negate: function(destination, source) {
-        return _assign(destination, new _uexpr('-', source));
+    negate: function(source) {
+        return new _uexpr('-', source);
     },
-    not: function(destination, source) {
-        return _assign(destination, new _uexpr('~', source));
+    not: function(source) {
+        return new _uexpr('~', source);
     },
-    subtract: function(destination, source_a, source_b) {
-        if ((destination == source_a) && (source_b == '0')) {
+    subtract: function(source_a, source_b) {
+        if (source_b == '0') {
             return null;
-        } else if (destination == source_a && source_b == '1') {
-            return new _uexpr_pf('--', destination);
+        } else if (source_b == '1') {
+            return '--';
         }
 
-        return _assign(destination, new _bexpr('-', source_a, source_b));
+        return new _bexpr('-', source_a, source_b);
     },
-    or: function(destination, source_a, source_b) {
+    or: function(source_a, source_b) {
         if (source_b == '0') {
-            return _assign(destination, source_a);
+            return source_a;
         }
 
-        return _assign(destination, new _bexpr('|', source_a, source_b));
+        return new _bexpr('|', source_a, source_b);
     },
-    xor: function(destination, source_a, source_b) {
+    xor: function(source_a, source_b) {
         if (source_a == source_b) {
-            return _assign(destination, '0');
+            return '0';
         }
 
-        return _assign(destination, new _bexpr('^', source_a, source_b));
+        return new _bexpr('^', source_a, source_b);
     },
-    shift_left: function(destination, source_a, source_b) {
-        return _assign(destination, new _bexpr('<<', source_a, source_b));
+    shift_left: function(source_a, source_b) {
+        return new _bexpr('<<', source_a, source_b);
     },
-    shift_right: function(destination, source_a, source_b) {
-        return _assign(destination, new _bexpr('>>', source_a, source_b));
+    shift_right: function(source_a, source_b) {
+        return new _bexpr('>>', source_a, source_b);
     },
-    rotate_left: function(destination, source_a, source_b, bits) {
+    rotate_left: function(source_a, source_b, bits) {
         Global.context.addDependency(new CCalls.rotate_left.fcn(bits));
 
-        return new _generic_rotate(destination, source_a, source_b, bits, true);
+        return new _generic_rotate(source_a, source_b, bits, true);
     },
-    rotate_right: function(destination, source_a, source_b, bits) {
+    rotate_right: function(source_a, source_b, bits) {
         Global.context.addDependency(new CCalls.rotate_right.fcn(bits));
 
-        return new _generic_rotate(destination, source_a, source_b, bits, false);
+        return new _generic_rotate(source_a, source_b, bits, false);
     },
     swap_endian: function(value, returns, bits) {
         Global.context.addDependency(new CCalls.swap_endian.fcn(bits));
 
         return _assign(returns, new _generic_call('SWAP' + bits, [value]));
     },
-    bit_mask: function(destination, source_a, source_b) {
+    bit_mask: function(source_a, source_b) {
         Global.context.addDependency(new CCalls.bit_mask.fcn());
 
-        return _assign(destination, new _generic_call('BIT_MASK', [source_a, source_b]));
+        return new _generic_call('BIT_MASK', [source_a, source_b]);
     },
     /* MEMORY */
     read_memory: function(pointer, register, bits, is_signed) {

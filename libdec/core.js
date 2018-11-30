@@ -24,6 +24,7 @@ module.exports = (function() {
     var Functions = require('libdec/core/functions');
     var Instruction = require('libdec/core/instruction');
     var ControlFlow = require('libdec/core/controlflow');
+    var VM = require('libdec/core/vm');
 
     /**
      * Is the function that is called after the opcode analisys.
@@ -56,13 +57,7 @@ module.exports = (function() {
      * @param  {Object} arch         - Current architecture object
      * @param  {Object} arch_context - Current architecture context object.
      */
-    var _pre_analysis = function(session, arch, arch_context) {
-        if (arch.preanalisys) {
-            arch.preanalisys(session.instructions, arch_context);
-        }
-        session.blocks[0].instructions = session.instructions.slice();
-        session.blocks[0].update();
-    };
+    var _pre_analysis = function(session, arch, arch_context) {};
 
     /**
      * Most important of the analisys block: it analize the architecture opcodes. 
@@ -71,17 +66,7 @@ module.exports = (function() {
      * @param  {Object} arch_context - Current architecture context object.
      */
     var _decompile = function(session, arch, arch_context) {
-        var instructions = session.blocks[0].instructions;
-        for (var i = 0; i < instructions.length; i++) {
-            var instr = instructions[i];
-            if (!instr.parsed.mnem || instr.parsed.mnem.length < 1) {
-                Global.warning("invalid mnem. stopping instruction analysis.");
-                break;
-            }
-            var fcn = arch.instructions[instr.parsed.mnem];
-            // console.log(instr.assembly)
-            instr.code = fcn ? fcn(instr, arch_context, instructions) : new Base.unknown(instr.assembly);
-        }
+        VM(session);
     };
 
     /**
@@ -102,51 +87,66 @@ module.exports = (function() {
         }
     };
 
+    var _routine = function(name) {
+        this.xrefs = [];
+        this.locals = {};
+        this.stack = [];
+        this.scopestack = [];
+        this.code = [];
+        this.instructions = [];
+        this.name = name;
+        this.scopes = [];
+        this.analyzed = false;
+        this.print = function() {
+            //for (var i = 0; i < this.instructions.length; i++) {
+            //    this.instructions[i].print();
+            //}
+        };
+    }
+
     /**
      * Defines the structure that will be used as session for analisys steps.
      * @param  {Object} data - Data to be analized.
      * @param  {Object} arch - Current architecture object
      */
     var _session = function(data, arch) {
-        this.blocks = [new Block()];
         var instructions = [];
-        var symbols = new Symbols(data.xrefs.symbols);
-        var strings = new Strings(data.xrefs.strings);
-        var functions = new Functions(data.xrefs.functions);
+        var symbols = new Symbols(data.symbols);
         var max_length = 0;
         var max_address = 8;
-        for (var i = 0; i < data.graph[0].blocks.length; i++) {
-            var block = data.graph[0].blocks[i];
-            // This is hacky but it is required by wasm..
-            if (data.arch == 'wasm') {
-                var last = block.ops[block.ops.length - 1];
-                if (!last.jump) {
-                    last.jump = block.jump;
-                }
+        var routines = [];
+        var old_symbl = null;
+        for (var i = 0; i < data.code.length; i++) {
+            var b = data.code[i];
+            if (!b) continue
+            if (max_length < b.opcode.length) {
+                max_length = b.opcode.length;
             }
-            instructions = instructions.concat(block.ops.filter(function(b) {
-                return b.opcode != null;
-            }).map(function(b) {
-                if (max_length < b.opcode.length) {
-                    max_length = b.opcode.length;
+            var ins = new Instruction(b);
+            if (max_address < ins.location.toString(16)) {
+                max_address = ins.location.toString(16).length;
+            }
+            var symbl = symbols.search(ins.location);
+            if (symbl) {
+                if (old_symbl) {
+                    routines[routines.length - 1].instructions = instructions;
                 }
-                var ins = new Instruction(b, arch);
-                if (max_address < ins.location.toString(16)) {
-                    max_address = ins.location.toString(16).length;
-                }
-                ins.symbol = symbols.search(ins.pointer || ins.jump);
-                ins.string = strings.search(ins.pointer);
-                ins.callee = functions.search(ins.jump);
-                return ins;
-            }));
+                instructions = []
+                old_symbl = symbl;
+                routines.push(new _routine(symbl));
+            }
+            instructions.push(ins);
+        }
+        if (old_symbl) {
+            routines[routines.length - 1].instructions = instructions;
         }
         Global.context.identAsmSet(max_length + max_address);
-        this.routine_name = data.graph[0].name;
-        this.instructions = instructions;
+        this.routines = routines;
+        this.globals = {};
+        this.memory = {};
         this.print = function() {
-            this.routine.print();
-            for (var i = 0; i < this.blocks.length; i++) {
-                this.blocks[i].print();
+            for (var i = 0; i < this.routines.length; i++) {
+                this.routines[i].print();
             }
         };
     };
