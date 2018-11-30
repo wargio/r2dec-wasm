@@ -1,5 +1,6 @@
 /nbproject/
 /node_modules/
-p/core_pdd.so
+p/*.so
+p/*.dll
 p/r2dec-test
 /themes/*.json

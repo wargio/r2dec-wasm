@@ -185,7 +185,7 @@ static int r_cmd_pdw(void *user, const char *input) {
 	RCore *core = (RCore *) user;
 	if (!strncmp (input, "e cmd.pdc", 9)) {
 		if (strchr (input, '=') && strchr (input, '?')) {
-			r_cons_printf ("r2dec\n");
+			r_cons_printf ("r2dec-wasm\n");
 			return false;
 		}
 	}

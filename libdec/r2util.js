@@ -81,15 +81,11 @@ module.exports = (function() {
     var padding = '            ';
     var usages = {
         "--help": "this help message",
-        "--assembly": "shows pseudo next to the assembly",
-        "--blocks": "shows only scopes blocks",
         "--colors": "enables syntax colors",
         "--casts": "shows all casts in the pseudo code",
         "--debug": "do not catch exceptions",
         "--html": "outputs html data instead of text",
         "--issue": "generates the json used for the test suite",
-        "--paddr": "all xrefs uses physical addresses instead of virtual addresses",
-        "--xrefs": "shows also instruction xrefs in the pseudo code",
     };
 
     function has_option(args, name) {
@@ -198,11 +194,7 @@ module.exports = (function() {
             this.arch = r2str('e asm.arch');
             this.archbits = r2int('e asm.bits', 32);
             this.honor = {
-                casts: r2bool('e r2dec.casts') || has_option(args, '--casts'),
-                assembly: r2bool('e r2dec.asm') || has_option(args, '--assembly'),
-                blocks: r2bool('e r2dec.blocks') || has_option(args, '--blocks'),
-                xrefs: r2bool('e r2dec.xrefs') || has_option(args, '--xrefs'),
-                paddr: r2bool('e r2dec.paddr') || has_option(args, '--paddr'),
+                casts: r2bool('e pdw.casts') || has_option(args, '--casts'),
                 html: r2bool('e scr.html') || has_option(args, '--html'),
                 color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };
@@ -212,7 +204,7 @@ module.exports = (function() {
                 capitalize: r2bool('e asm.capitalize'),
             };
             this.extra = {
-                theme: r2str('e r2dec.theme'),
+                theme: r2str('e pdw.theme'),
                 debug: has_option(args, '--debug')
             };
         },
@@ -245,7 +237,7 @@ module.exports = (function() {
             } else {
                 console.log(
                     '\n\nr2dec has crashed.\n' +
-                    'Please report the bug at https://github.com/wargio/r2dec-js/issues\n' +
+                    'Please report the bug at https://github.com/wargio/r2dec-wasm/issues\n' +
                     'Use the option \'--issue\' or the command \'pddi\' to generate \n' +
                     'the needed data for the issue.'
                 );
