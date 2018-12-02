@@ -221,6 +221,41 @@ var _generic_flow = function(name) {
     };
 };
 
+var _conditional_flow = function(name, condition) {
+    this.name = name;
+    this.condition = condition;
+    this.enter_scope = true;
+
+    this.toString = function() {
+        return Global.printer.theme.flow(this.name) + " (" + Global.printer.auto(this.condition) + ") {";
+    };
+};
+
+var _inline_conditional_flow = function(name, condition, flow) {
+    this.name = name;
+    this.condition = condition;
+    this.flow = flow;
+
+    this.toString = function() {
+        return Global.printer.theme.flow(this.name) + " (" + Global.printer.auto(this.condition) + ") " + Global.printer.theme.flow(this.flow);
+    };
+};
+
+var _end_flow = function() {
+    this.exit_scope = true;
+    this.toString = function() {
+        return "}";
+    };
+};
+
+var _else_flow = function() {
+    this.exit_scope = true;
+    this.enter_scope = true;
+    this.toString = function() {
+        return "} " + Global.printer.theme.flow('else') + " {";
+    };
+};
+
 module.exports = {
     /* COMMON */
     assign: _assign,
@@ -393,5 +428,21 @@ module.exports = {
     /* UNKNOWN */
     unknown: function(asm) {
         return new _generic_asm(asm);
+    },
+    /* CONTROL FLOW */
+    'if': function(condition) {
+        return new _conditional_flow('if', condition);
+    },
+    'if_branch': function(condition, branch) {
+        return new _inline_conditional_flow('if', condition, branch);
+    },
+    'while': function(condition) {
+        return new _conditional_flow('while', condition || '1');
+    },
+    'else': function(condition) {
+        return new _else_flow();
+    },
+    'end': function(condition) {
+        return new _end_flow();
     }
 };

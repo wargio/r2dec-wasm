@@ -58,16 +58,20 @@ module.exports = (function() {
         return value.length == 0 ? expected : value;
     }
 
-    function r2dec_sanitize(enable, evar, oldstatus, newstatus) {
-        if (enable) {
-            r2cmd('e ' + evar + ' = ' + newstatus);
-        } else {
-            r2cmd('e ' + evar + ' = ' + oldstatus);
+    function r2dec_sanitize(enable, evar, oldstatus, newstatus, prefix) {
+        if (typeof prefix != 'string') {
+            prefix = 'e ';
         }
+        if (enable) {
+            r2cmd(prefix + evar + ' = ' + newstatus);
+        } else {
+            r2cmd(prefix + evar + ' = ' + oldstatus);
+        }
+        return;
     }
 
     function merge_arrays(input) {
-        input = input.split('\n').map(function(x){
+        input = input.split('\n').map(function(x) {
             return x.length > 2 ? x.trim().substr(1, x.length).substr(0, x.length - 2) : '';
         });
         var array = '[' + input.filter(Boolean).join(',') + ']';
@@ -83,6 +87,7 @@ module.exports = (function() {
         "--help": "this help message",
         "--colors": "enables syntax colors",
         "--casts": "shows all casts in the pseudo code",
+        "--all": "decompiles all the code segment",
         "--debug": "do not catch exceptions",
         "--html": "outputs html data instead of text",
         "--issue": "generates the json used for the test suite",
@@ -114,8 +119,10 @@ module.exports = (function() {
         var symbols = r2_sanitize(r2str('isj'), '[]');
         var data = r2_sanitize(r2str('pIj $SS @ section.code'), '[]');
         var arch = r2_sanitize(r2str('e asm.arch'), '');
+        var routine = r2_sanitize(r2str('fd'), 'entry0');
         console.log('{"name":"issue_' + (new Date()).getTime() +
             '","arch":"' + arch +
+            '","routine":"' + routine +
             '","symbols":' + symbols +
             ',"code":' + data + '}');
     }
@@ -161,9 +168,11 @@ module.exports = (function() {
             this.honor = {
                 casts: r2bool('e pdw.casts') || has_option(args, '--casts'),
                 html: r2bool('e scr.html') || has_option(args, '--html'),
+                all: has_option(args, '--all'),
                 color: r2int('e scr.color', 0) > 0 || has_option(args, '--colors')
             };
             this.sanitize = {
+                block: r2int('b'),
                 ucase: r2bool('e asm.ucase'),
                 pseudo: r2bool('e asm.pseudo'),
                 capitalize: r2bool('e asm.capitalize'),
@@ -176,6 +185,7 @@ module.exports = (function() {
         data: function() {
             this.arch = r2str('e asm.arch');
             this.symbols = r2json('isj', []);
+            this.routine = r2str('fd', 'entry0');
             this.code = r2json('pIj $SS @ section.code', []);
         },
         sanitize: function(enable, evars) {
@@ -183,6 +193,7 @@ module.exports = (function() {
             r2dec_sanitize(enable, 'asm.ucase', s.ucase, 'false');
             r2dec_sanitize(enable, 'asm.pseudo', s.pseudo, 'false');
             r2dec_sanitize(enable, 'asm.capitalize', s.capitalize, 'false');
+            r2dec_sanitize(enable, 'b', s.block, '0x500', '');
         },
         debug: function(evars, exception) {
             r2util.sanitize(false, evars);

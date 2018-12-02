@@ -33,29 +33,13 @@ module.exports = (function() {
 
     var _asm_view = function(instr) {
         var i;
-        if (Global.evars.honor.blocks) {
-            return;
-        }
-        if (Global.evars.honor.assembly) {
-            var t = Global.printer.theme;
-            var b = Global.printer.auto;
-            var addr = _align(instr.location);
-            var s = 1 + addr.length + instr.simplified.length;
-            if (instr.code && instr.code.composed) {
-                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + instr.code.composed[0] + ';');
-                for (i = 1; i < instr.code.composed.length; i++) {
-                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
-                }
-            } else {
-                console.log(Global.context.identfy(s, t.integers(addr) + ' ' + b(instr.simplified)) + (_printable(instr) ? (instr.code + ';') : ''));
+        if (_printable(instr)) {
+            if (instr.code.exit_scope) {
+                Global.context.identOut();
             }
-        } else {
-            if (instr.code && instr.code.composed) {
-                for (i = 0; i < instr.code.composed.length; i++) {
-                    console.log(Global.context.identfy() + instr.code.composed[i] + ';');
-                }
-            } else if (_printable(instr)) {
-                console.log(Global.context.identfy() + instr.code + ';');
+            console.log(Global.context.identfy() + instr.code + ';');
+            if (instr.code.enter_scope) {
+                Global.context.identIn();
             }
         }
     };

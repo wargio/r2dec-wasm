@@ -24,6 +24,7 @@ module.exports = (function() {
     var Functions = require('libdec/core/functions');
     var Instruction = require('libdec/core/instruction');
     var ControlFlow = require('libdec/core/controlflow');
+    var Extra = require('libdec/core/extra');
     var VM = require('libdec/core/vm');
 
     /**
@@ -35,6 +36,7 @@ module.exports = (function() {
      * @param  {Object} arch_context - Current architecture context object.
      */
     var _post_analysis = function(session, arch, arch_context) {
+        /*
         ControlFlow(session);
         if (arch.postanalisys) {
             arch.postanalisys(session.instructions, arch_context);
@@ -47,6 +49,7 @@ module.exports = (function() {
             globals: arch.globalvars(arch_context) || []
         });
         session.routine = routine;
+        */
     };
 
     /**
@@ -87,6 +90,22 @@ module.exports = (function() {
         }
     };
 
+    var _analyze_locals = function(locals) {
+        var a = Global.printer.auto;
+        var o = {
+            locals: [],
+            args: []
+        };
+        for (var key in locals) {
+            if (locals[key].value().indexOf('arg_') == 0) {
+                o.args.push(a(locals[key].define()));
+            } else {
+                o.locals.push(a(locals[key].define()));
+            }
+        }
+        return o;
+    };
+
     var _routine = function(name) {
         this.xrefs = [];
         this.locals = {};
@@ -96,11 +115,35 @@ module.exports = (function() {
         this.instructions = [];
         this.name = name;
         this.scopes = [];
+        this.returns = 'void';
         this.analyzed = false;
         this.print = function() {
-            //for (var i = 0; i < this.instructions.length; i++) {
-            //    this.instructions[i].print();
-            //}
+            var vars = _analyze_locals(this.locals);
+            var t = Global.printer.theme;
+            console.log(t.types(this.returns) + ' ' + t.callname(Extra.replace.call(this.name)) + ' (' + vars.args.join(', ') + ') {');
+            Global.context.identIn();
+            for (var i = 0; i < vars.locals.length; i++) {
+                console.log(Global.context.identfy() + vars.locals[i] + ';');
+            }
+            if (vars.locals.length > 0) console.log();
+
+            for (var i = 0; i < this.code.length; i++) {
+                var to_print = this.code[i];
+                var end = to_print.exit_scope || to_print.enter_scope ? '' : ';';
+                if (to_print.exit_scope) {
+                    Global.context.identOut();
+                }
+                if (to_print.label && !to_print.exit_scope && !to_print.enter_scope) {
+                    console.log(to_print.label);
+                }
+                console.log(Global.context.identfy() + to_print + end);
+                if (to_print.enter_scope) {
+                    Global.context.identIn();
+                }
+                if (to_print.label && (to_print.exit_scope || to_print.enter_scope)) {
+                    console.log(to_print.label);
+                }
+            }
         };
     }
 
@@ -109,12 +152,13 @@ module.exports = (function() {
      * @param  {Object} data - Data to be analized.
      * @param  {Object} arch - Current architecture object
      */
-    var _session = function(data, arch) {
+    var _session = function(data) {
         var instructions = [];
         var symbols = new Symbols(data.symbols);
         var max_length = 0;
         var max_address = 8;
         var routines = [];
+        Global.evars
         var old_symbl = null;
         for (var i = 0; i < data.code.length; i++) {
             var b = data.code[i];
@@ -141,12 +185,23 @@ module.exports = (function() {
             routines[routines.length - 1].instructions = instructions;
         }
         Global.context.identAsmSet(max_length + max_address);
+        this.to_show = Global.evars.honor.all ? null : (data.routine == 'entry0' ? routines[0].name : data.routine.replace(/^sym\./, ''));
         this.routines = routines;
         this.globals = {};
         this.memory = {};
         this.print = function() {
+            for (var key in this.memory) {
+                console.log(Global.printer.theme.types(this.memory[key]) + " " + key + '[];');
+            }
+            for (var key in this.globals) {
+                console.log(Global.printer.auto(this.globals[key].define()) + ';');
+            }
+            console.log();
+
             for (var i = 0; i < this.routines.length; i++) {
+                if (this.to_show && this.routines[i].name != this.to_show) continue;
                 this.routines[i].print();
+                console.log();
             }
         };
     };

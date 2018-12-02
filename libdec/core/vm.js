@@ -23,6 +23,7 @@ module.exports = (function() {
         globals: 0,
         locals: 0,
         args: 0,
+        labels: 0,
     };
 
     var _bits = function(o) {
@@ -43,7 +44,7 @@ module.exports = (function() {
 
     var _type = function(o, unsigned) {
         if (typeof o == 'object') {
-            o = o.parsed.type;
+            o = o.type;
         }
         switch (o) {
             case 'f32':
@@ -59,10 +60,11 @@ module.exports = (function() {
 
     var Global = function(type, data) {
         this.type = type || 'i32';
-        this.name = "global_" + (_counters.globals++);
-        this.print = function() {
-            //this.link.print();
-        };
+        this.name = "global_" + _counters.globals;
+        _counters.globals++
+            this.define = function() {
+                return _type(this.type) + " " + this.name;
+            };
         this.value = function() {
             return this.name;
         };
@@ -73,8 +75,8 @@ module.exports = (function() {
         this.is_arg = true;
         this.type = type || 'i32';
         this.name = "arg_" + (_counters.args++);
-        this.print = function() {
-            //this.link.print();
+        this.define = function() {
+            return _type(this.type) + " " + this.name;
         };
         this.value = function() {
             return this.name;
@@ -85,8 +87,8 @@ module.exports = (function() {
     var Local = function(type, data) {
         this.type = type || 'i32';
         this.name = "local_" + (_counters.locals++);
-        this.print = function() {
-            //this.link.print();
+        this.define = function() {
+            return _type(this.type) + " " + this.name;
         };
         this.value = function() {
             return this.name;
@@ -97,11 +99,18 @@ module.exports = (function() {
     var Const = function(type, data) {
         this.type = type || 'i32';
         this.data = data || 0;
-        this.print = function() {
-            //this.link.print();
-        };
+        this.define = function() {};
         this.value = function() {
             return this.data;
+        };
+        this.toString = this.value;
+    };
+
+    var Condition = function(condition) {
+        this.type = 'i32';
+        this.condition = condition;
+        this.value = function() {
+            return this.condition;
         };
         this.toString = this.value;
     };
@@ -131,9 +140,39 @@ module.exports = (function() {
         this.toString = this.value;
     };
 
+    var _cmp = {
+        eq: ' == ',
+        ne: ' != ',
+        eqz: ' == ',
+        nez: ' != ',
+        gt_s: ' > ',
+        gt_u: ' > ',
+        ge_s: ' >= ',
+        ge_u: ' >= ',
+        lt_s: ' < ',
+        lt_u: ' < ',
+        le_s: ' <= ',
+        le_u: ' <= ',
+        gt: ' > ',
+        ge: ' >= ',
+        lt: ' < ',
+        le: ' <= '
+    };
 
-    var _conditional = function(instr, current, session) {};
-    var _conditional_zero = function(instr, current, session) {};
+    var _conditional = function(instr, current, session) {
+        var b = current.stack.pop().value();
+        var a = current.stack.pop().value();
+        var cmp = _cmp[instr.parsed.mnem];
+        current.stack.push(new Condition(a + cmp + b));
+    };
+
+    var _conditional_zero = function(instr, current, session) {
+        var b = '0';
+        var a = current.stack.pop().value();
+        var cmp = _cmp[instr.parsed.mnem];
+        current.stack.push(new Condition(a + cmp + b));
+    };
+
     var _math = function(instr, current, session, op, unsigned) {
         // TODO: handle unsigned
         var source_b = current.stack.pop();
@@ -147,21 +186,21 @@ module.exports = (function() {
         var offset = parseInt(instr.parsed.opd[instr.parsed.opd.length - 1] || '0');
         var bits = parseInt(instr.parsed.type.match(/\d+/)[0]) / 8;
         var signed = instr.parsed.mnem.endsWith('_s');
-        session.memory = '_memory8';
+        session.memory['memory_u8'] = 'uint8_t';
         bits /= 8;
         if (offset > 0) {
             if (pointer.match(/^\d+$/)) {
                 offset += parseInt(pointer);
             } else {
-            	offset = pointer + " + " + offset;
+                offset = pointer + " + " + offset;
             }
         }
-        var mem = new Variable.pointer('_memory8 + ' + offset, _bits(instr), signed);
+        var mem = new Variable.pointer('memory_u8 + ' + offset, _bits(instr), signed);
         current.stack.push(new Const(instr.parsed.type, mem.toString()));
     };
 
     var _common_store = function(instr, current, session) {
-        session.memory = '_memory8';
+        session.memory['memory_u8'] = 'uint8_t';
         var offset = instr.parsed.opd[instr.parsed.opd.length - 1];
         var pointer = current.stack.pop();
         var register = current.stack.pop();
@@ -170,7 +209,7 @@ module.exports = (function() {
         if (offset != '0') {
             pointer += ' + ' + (parseInt(offset) / (bits / 8)).toString();
         }
-        return Base.write_memory('_memory8 + ' + pointer, register.value(), bits, false);
+        return Base.write_memory('memory_u8 + ' + pointer, register.value(), bits, false);
     };
 
     var wasm_parse = function(asm) {
@@ -260,7 +299,9 @@ module.exports = (function() {
         wrap: function(instr, current, session) {},
         trunc_s: function(instr, current, session) {},
         trunc_u: function(instr, current, session) {},
-        xor: function(instr, current, session) {},
+        xor: function(instr, current, session) {
+            return _math(instr, current, session, Base.xor);
+        },
         get_global: function(instr, current, session) {
             var key = instr.parsed.opd[0];
             if (!session.globals[key]) {
@@ -291,36 +332,132 @@ module.exports = (function() {
             }
             return Base.assign(current.locals[key].value(), value.value());
         },
-        tee_local: function(instr, current, session) {},
+        tee_local: function(instr, current, session) {
+            var key = instr.parsed.opd[0];
+            var value = current.stack.pop() || 0;
+            if (!current.locals[key]) {
+                current.locals[key] = new Local(instr.parsed.type);
+            }
+            return Base.assign(current.locals[key].value(), value.value());
+        },
         drop: function(instr, current, session) {
             current.stack.pop().value();
         },
-        call: function(instr, current, session) {},
-        return: function(instr, current, session) {},
+        call: function(instr, current, session) {
+            var id = parseInt(instr.parsed.opd[0] || '0');
+            var name = 'unknown_' + id;
+            if (session.routines[id]) {
+                name = session.routines[id].name
+            }
+            return Base.call(Extra.replace.call(name));
+        },
+        return: function(instr, current, session) {
+            var value = current.stack.pop();
+            if (value) {
+                current.returns = _type(value)
+            }
+            return Base.return(value ? value.value() : null);
+        },
         'if': function(instr, current, session) {
-			current.scopestack.push(true);
+            current.scopestack.push({
+                name: 'if',
+                data: current.code.length
+            });
+            return Base.if(current.stack.pop().value());
         },
-        br_if: function(instr, current, session) {},
-        'else': function(instr, current, session) {},
+        br_if: function(instr, current, session) {
+            var id = parseInt(instr.parsed.opd[0] || '0');
+            var last = current.scopestack.length - 1;
+            var label = null;
+            if (id > 0) {
+                if (current.scopestack[last - id].name == 'block') {
+                    label = 'label_' + _counters.labels;
+                    _counters.labels++;
+                    current.scopestack[last - id].label = label;
+                } else {
+                    var pos = current.scopestack[last - id].data;
+                    if (current.code[pos].label) {
+                        label = current.code[pos].label;
+                    } else {
+                        label = 'label_' + _counters.labels;
+                        _counters.labels++;
+                        current.code[pos].label = label;
+                    }
+                }
+            }
+            if (id == 0) {
+                return Base.if_branch(current.stack.pop().value(), current.scopestack[last].name == 'block' ? Base.break() : Base.continue());
+            }
+            return Base.if_branch(current.stack.pop().value(), Base.goto(label));
+        },
+        'else': function(instr, current, session) {
+            var p = current.scopestack.pop();
+            instr.label = p ? p.label : null;
+            current.scopestack.push({
+                name: 'else',
+                data: current.code.length
+            });
+            return Base.else();
+        },
         block: function(instr, current, session) {
-			current.scopestack.push(true);
+            current.scopestack.push({
+                name: 'block',
+                data: current.code.length
+            });
+            return Base.while();
         },
-        loop: function(instr, current, session) {},
+        loop: function(instr, current, session) {
+            current.scopestack.push({
+                name: 'while',
+                data: current.code.length
+            });
+            return Base.while();
+        },
         end: function(instr, current, session) {
             current.analyzed = current.scopestack.length < 1;
-            current.scopestack.pop();
+            var p = current.scopestack.pop();
+            var o = Base.end();
+            o.label = p ? p.label : null;
+            return o;
         },
-        br: function(instr, current, session) {},
+        br: function(instr, current, session) {
+            var id = parseInt(instr.parsed.opd[0] || '0');
+            var last = current.scopestack.length - 1;
+            var label = null;
+            if (id > 0) {
+                if (current.scopestack[last - id].name == 'block') {
+                    label = 'label_' + _counters.labels;
+                    _counters.labels++;
+                    current.scopestack[last - id].label = label;
+                } else {
+                    var pos = current.scopestack[last - id].data;
+                    if (current.code[pos].label) {
+                        label = current.code[pos].label;
+                    } else {
+                        label = 'label_' + _counters.labels;
+                        _counters.labels++;
+                        current.code[pos].label = label;
+                    }
+                }
+            }
+            if (id == 0) {
+                return current.scopestack[last].name == 'block' ? Base.break() : Base.continue();
+            }
+            return Base.goto(label);
+        },
         nop: function(instr, current, session) {},
         invalid: function(instr, current, session) {},
     };
 
 
     return function(session) {
-        for (var j = 1; j < session.routines.length; j++) {
+        for (var j = 0; j < session.routines.length; j++) {
             var current = session.routines[j];
             var instructions = current.instructions;
+            if (session.to_show && current.name != session.to_show) continue;
             _counters.args = 0; // arg counter always to zero
+            _counters.locals = 0;
+            _counters.labels = 0;
             for (var i = 0; i < instructions.length; i++) {
                 var instr = instructions[i];
                 instr.parsed = wasm_parse(instr.assembly);
@@ -329,16 +466,17 @@ module.exports = (function() {
                     break;
                 }
                 var fcn = wasm_opcodes[instr.parsed.mnem];
-                console.log(current.name, instr.location.toString(16), instr.assembly);
+                // console.log(current.name, instr.location.toString(16), instr.assembly);
                 var c_code = fcn ? fcn(instr, current, session) : null;
-                if (current.analyzed) {
-                    break;
-                } else if (c_code) {
-                    console.log('>>', c_code.toString())
+                if (c_code) {
+                    // console.log('>>', c_code.toString())
                     current.code.push(c_code);
                 }
+                if (current.analyzed) {
+                    break;
+                }
             }
-            break
+            session.routines[j] = current;
         }
     };
 })();

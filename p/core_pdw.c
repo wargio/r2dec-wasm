@@ -138,6 +138,7 @@ static void duk_r2dec(RCore *core, const char *input) {
 static void usage(void) {
 	r_cons_printf ("Usage: pdw [args] - core plugin for r2dec\n");
 	r_cons_printf (" pdw   - decompile current function\n");
+	r_cons_printf (" pdwa  - decompile all the code segment\n");
 	r_cons_printf (" pdw?  - show this help\n");
 	r_cons_printf (" pdwu  - install/upgrade r2dec via r2pm\n");
 	r_cons_printf (" pdwi  - generates the issue data\n");
@@ -157,6 +158,12 @@ static void _cmd_pdw(RCore *core, const char *input) {
 		break;
 	case ' ':
 		duk_r2dec(core, input);
+		break;
+	case 'a':
+		duk_r2dec(core, "--all");
+		break;
+	case 'i':
+		duk_r2dec(core, "--issue");
 		break;
 	case 'u':
 		// update
@@ -208,8 +215,10 @@ int r_cmd_pdw_init(void *user, const char *cmd) {
 
 	// autocomplete here..
 	RCoreAutocomplete *pdw = r_core_autocomplete_add (core->autocomplete, "pdw", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (core->autocomplete, "pdwa", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdwi", R_CORE_AUTOCMPLT_DFLT, true);
 	r_core_autocomplete_add (core->autocomplete, "pdwu", R_CORE_AUTOCMPLT_DFLT, true);
+	r_core_autocomplete_add (pdw, "--all", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdw, "--casts", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdw, "--colors", R_CORE_AUTOCMPLT_OPTN, true);
 	r_core_autocomplete_add (pdw, "--debug", R_CORE_AUTOCMPLT_OPTN, true);
