@@ -138,13 +138,12 @@ static void duk_r2dec(RCore *core, const char *input) {
 static void usage(void) {
 	r_cons_printf ("Usage: pdw [args] - core plugin for r2dec\n");
 	r_cons_printf (" pdw   - decompile current function\n");
-	r_cons_printf (" pdwa  - decompile all the code segment\n");
 	r_cons_printf (" pdw?  - show this help\n");
-	r_cons_printf (" pdwu  - install/upgrade r2dec via r2pm\n");
+	r_cons_printf (" pdwa  - decompile all the code segment\n");
 	r_cons_printf (" pdwi  - generates the issue data\n");
+	r_cons_printf (" pdwu  - install/upgrade r2dec via r2pm\n");
 	r_cons_printf ("Evaluable Variables:\n");
 	r_cons_printf (" pdw.casts   - if false, hides all casts in the pseudo code.\n");
-	r_cons_printf (" pdw.paddr   - if true, all xrefs uses physical addresses compare.\n");
 	r_cons_printf (" pdw.theme   - defines the color theme to be used on r2dec.\n");
 	r_cons_printf ("Environment\n");
 	r_cons_printf (" R2DEC_WASM_HOME  defaults to the root directory of the r2dec repo\n");
@@ -209,7 +208,6 @@ int r_cmd_pdw_init(void *user, const char *cmd) {
 	RConfig *cfg = core->config;
 	r_config_lock (cfg, false);
 	SETPREF("pdw.casts", "false", "if false, hides all casts in the pseudo code.");
-	SETPREF("pdw.paddr", "false", "if true, all xrefs uses physical addresses compare.");
 	SETPREF("pdw.theme", "default", "defines the color theme to be used on r2dec.");
 	r_config_lock (cfg, true);
 
